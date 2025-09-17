@@ -1,0 +1,2 @@
+recursive-include tutorlivedeps/patches *
+recursive-include tutorlivedeps/templates *
