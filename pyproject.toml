@@ -30,7 +30,7 @@ dependencies = [
     "tutor>=20.0.0,<21.0.0",
     "tutor-minio>=20.0.0,<21.0.0",
 ]
-optional-dependencies = { dev = ["tutor[dev]>=20.0.0,<21.0.0"] }
+optional-dependencies = { dev = ["tutor[dev]>=20.0.0,<21.0.0", "ruff"] }
 
 # These fields will be set by hatch_build.py
 dynamic = ["version"]
