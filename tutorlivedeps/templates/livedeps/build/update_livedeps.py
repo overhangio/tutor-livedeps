@@ -8,8 +8,7 @@ DEPS_DIR = "/openedx/live-dependencies/deps"
 DEPS_KEY = "deps.zip"
 DEPS_ZIP_PATH = DEPS_DIR[:-4] + DEPS_KEY
 
-# TODO Use a separate storage for live dependencies
-storage = storages["default"]
+storage = storages["livedeps"]
 
 if storage.exists(DEPS_KEY):
     if os.path.exists(DEPS_DIR):

@@ -86,8 +86,7 @@ with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
     archive_path = shutil.make_archive(base[:-4], format="zip", root_dir=DEPS_DIR)
 
     with open(archive_path, "rb") as f:
-        # TODO Use a separate storage for live dependencies
-        storages["default"].save(DEPS_KEY, File(f))
+        storages["livedeps"].save(DEPS_KEY, File(f))
 '
     """
 
