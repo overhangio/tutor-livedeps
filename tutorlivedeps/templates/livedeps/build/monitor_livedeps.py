@@ -9,8 +9,7 @@ DEPS_KEY = "deps.zip"
 DEPS_ZIP_PATH = DEPS_DIR[:-4] + DEPS_KEY
 TRIGGER_FILE = "/openedx/live-dependencies/uwsgi_trigger"
 
-# TODO Use a separate storage for live dependencies
-storage = storages["default"]
+storage = storages["livedeps"]
 
 while True:
     if storage.exists(DEPS_KEY):

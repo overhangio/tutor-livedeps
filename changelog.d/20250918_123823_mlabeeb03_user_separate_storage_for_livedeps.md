@@ -1,0 +1,1 @@
+- [Feature] Use a separate storage for storing live dependencies. (by @mlabeeb03)
