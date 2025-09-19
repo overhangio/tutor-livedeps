@@ -21,3 +21,5 @@ if storage.exists(DEPS_KEY):
 
     with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
         zip_ref.extractall(DEPS_DIR)
+
+    os.remove(DEPS_ZIP_PATH)
