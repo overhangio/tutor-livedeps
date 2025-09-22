@@ -68,12 +68,21 @@ def build_live_dependencies(context: Context) -> t.Iterable[tuple[str, str]]:
     all_packages = " ".join(
         package for package in t.cast(list[str], config["LIVE_DEPENDENCIES"])
     )
-
-    script = f"""
-    pip install \
-    --prefix=/openedx/live-dependencies/deps \
-    {all_packages} \
-    && python3 -c '
+    if not all_packages:
+        # Delete the deps.zip file if the LIVE_DEPENDENCIES list is empty
+        script = """
+        python3 -c '
+from django.core.files.storage import storages
+DEPS_KEY = "deps.zip"
+storages["default"].delete(DEPS_KEY)
+'
+        """
+    else:
+        script = f"""
+        pip install \
+        --prefix=/openedx/live-dependencies/deps \
+        {all_packages} \
+        && python3 -c '
 import os, shutil, tempfile
 from django.core.files.storage import storages
 from django.core.files.base import File
@@ -89,7 +98,7 @@ with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
         # TODO Use a separate storage for live dependencies
         storages["default"].save(DEPS_KEY, File(f))
 '
-    """
+        """
 
     yield ("lms", script)
 

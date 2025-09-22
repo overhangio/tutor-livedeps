@@ -12,6 +12,10 @@ This plugin depends on the `tutor-minio <https://github.com/overhangio/tutor-min
 
 ``tutor plugins enable livedeps``
 
+Then build the openedx image:
+
+``tutor images build openedx``
+
 
 Configuration
 -------------
