@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""
+Manage live dependencies for Open edX.
+"""
+
+import argparse
+import datetime
+import os
+import shutil
+import tempfile
+import zipfile
+
+from django.core.files.base import File
+from django.core.files.storage import storages
+
+DEPS_DIR = "/openedx/live-dependencies/deps"
+DEPS_KEY = "deps.zip"
+TRIGGER_FILE = "/openedx/live-dependencies/uwsgi_trigger"
+TIMESTAMP_FILE = "/openedx/live-dependencies/last_update_timestamp"
+DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
+
+STORAGE = storages["default"]
+
+
+def monitor_livedeps():
+    """Check if deps.zip changed and trigger reload if needed."""
+
+    if STORAGE.exists(DEPS_KEY):
+        remote_ts = STORAGE.get_modified_time(DEPS_KEY)
+
+        local_ts = None
+        if os.path.exists(TIMESTAMP_FILE):
+            with open(TIMESTAMP_FILE, "r") as f:
+                local_ts_str = f.read().strip()
+                if local_ts_str:
+                    local_ts = datetime.datetime.fromisoformat(local_ts_str)
+
+        if not local_ts or local_ts < remote_ts:
+            with open(TRIGGER_FILE, "a"):
+                os.utime(TRIGGER_FILE, None)
+    else:
+        if os.path.exists(DEPS_DIR):
+            # If deps.zip deleted remotely, remove local deps and trigger reload
+            shutil.rmtree(DEPS_DIR)
+            with open(TRIGGER_FILE, "a"):
+                os.utime(TRIGGER_FILE, None)
+
+
+def update_livedeps():
+    """Download deps.zip and extract it into DEPS_DIR."""
+
+    if STORAGE.exists(DEPS_KEY):
+        if os.path.exists(DEPS_DIR):
+            shutil.rmtree(DEPS_DIR)
+        os.makedirs(DEPS_DIR, exist_ok=True)
+
+        with (
+            STORAGE.open(DEPS_KEY, "rb") as remote_f,
+            open(DEPS_ZIP_PATH, "wb") as local_f,
+        ):
+            shutil.copyfileobj(remote_f, local_f)
+
+        with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
+            zip_ref.extractall(DEPS_DIR)
+
+        os.remove(DEPS_ZIP_PATH)
+
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    with open(TIMESTAMP_FILE, "w") as f:
+        f.write(now.isoformat())
+
+
+def build_deps():
+    """Install all packages, zip them and upload it to django storage."""
+
+    with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
+        base = os.path.join(zip_dir, DEPS_KEY)
+        archive_path = shutil.make_archive(base[:-4], format="zip", root_dir=DEPS_DIR)
+
+        with open(archive_path, "rb") as f:
+            STORAGE.save(DEPS_KEY, File(f))
+
+
+def delete_deps():
+    """Delete the deps.zip file from storage."""
+    STORAGE.delete(DEPS_KEY)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Manage live dependencies")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    subparsers.add_parser(
+        "monitor", help="Monitor deps.zip and trigger reload if needed"
+    )
+    subparsers.add_parser("update", help="Download and extract deps.zip")
+    build_parser = subparsers.add_parser(
+        "build", help="Build and upload deps.zip from LIVE_DEPENDENCIES list"
+    )
+    build_parser.add_argument(
+        "packages",
+        nargs="*",
+        help="List of package names to download",
+    )
+    subparsers.add_parser("delete", help="Delete deps.zip from storage")
+
+    args = parser.parse_args()
+
+    if args.command == "monitor":
+        monitor_livedeps()
+    elif args.command == "update":
+        update_livedeps()
+    elif args.command == "build":
+        build_deps()
+    elif args.command == "delete":
+        delete_deps()
+
+
+if __name__ == "__main__":
+    main()

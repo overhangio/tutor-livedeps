@@ -61,44 +61,23 @@ for path in glob(str(importlib_resources.files("tutorlivedeps") / "patches" / "*
 @click.pass_obj
 def build_live_dependencies(context: Context) -> t.Iterable[tuple[str, str]]:
     """
-    Build the live dependencies and upload using Django's storage API.
-    You need to update the `LIVE_DEPENDENCIES` variable in the config file to add/remove packages.
+    Calls the build_deps function in livedeps.py with the list of packages
+    specified in the LIVE_DEPENDENCIES configuration variable.
     """
     config = tutor_config.load(context.root)
     all_packages = " ".join(
         package for package in t.cast(list[str], config["LIVE_DEPENDENCIES"])
     )
+    script = f"""
+    pip install \
+    --prefix=/openedx/live-dependencies/deps \
+    {all_packages} \
+    """
+
     if not all_packages:
-        # Delete the deps.zip file if the LIVE_DEPENDENCIES list is empty
-        script = """
-        python3 -c '
-from django.core.files.storage import storages
-DEPS_KEY = "deps.zip"
-storages["default"].delete(DEPS_KEY)
-'
-        """
+        script = "livedeps.py delete"
     else:
-        script = f"""
-        pip install \
-        --prefix=/openedx/live-dependencies/deps \
-        {all_packages} \
-        && python3 -c '
-import os, shutil, tempfile
-from django.core.files.storage import storages
-from django.core.files.base import File
-
-DEPS_DIR = "/openedx/live-dependencies/deps"
-DEPS_KEY = "deps.zip"
-
-with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
-    base = os.path.join(zip_dir, DEPS_KEY)
-    archive_path = shutil.make_archive(base[:-4], format="zip", root_dir=DEPS_DIR)
-
-    with open(archive_path, "rb") as f:
-        # TODO Use a separate storage for live dependencies
-        storages["default"].save(DEPS_KEY, File(f))
-'
-        """
+        script += "&& livedeps.py build"
 
     yield ("lms", script)
 

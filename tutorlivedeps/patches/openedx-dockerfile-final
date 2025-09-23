@@ -1,8 +1,5 @@
-# Set the PYTHONPATH to include the folder where we put live dependencies
-ENV PYTHONPATH=/openedx/live-dependencies/deps/lib/python3.11/site-packages
-
 RUN mkdir -p /openedx/live-dependencies
 RUN touch /openedx/live-dependencies/uwsgi_trigger
 RUN touch /openedx/live-dependencies/last_update_timestamp
-COPY --chown=app:app settings/livedeps/build/monitor_livedeps.py /openedx/live-dependencies/
-COPY --chown=app:app settings/livedeps/build/update_livedeps.py /openedx/live-dependencies/
+COPY --chown=app:app settings/livedeps/build/livedeps.py /openedx/bin/
+RUN chmod +x /openedx/bin/livedeps.py
