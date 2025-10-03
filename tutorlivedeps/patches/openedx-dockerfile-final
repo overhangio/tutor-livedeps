@@ -1,5 +1,4 @@
-RUN mkdir -p /openedx/live-dependencies
-RUN touch /openedx/live-dependencies/uwsgi_trigger
-RUN touch /openedx/live-dependencies/last_update_timestamp
-COPY --chown=app:app settings/livedeps/build/livedeps.py /openedx/bin/
-RUN chmod +x /openedx/bin/livedeps.py
+RUN mkdir -p /openedx/livedeps
+RUN touch /openedx/livedeps/uwsgi_trigger
+RUN touch /openedx/livedeps/last_update_timestamp
+COPY --chown=app:app chmod +x settings/livedeps/build/livedeps /openedx/bin/

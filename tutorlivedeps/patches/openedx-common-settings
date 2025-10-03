@@ -1,2 +1,2 @@
 import sys
-sys.path.insert(0,'/openedx/live-dependencies/deps/lib/python3.11/site-packages')
+sys.path.insert(0,'/openedx/livedeps/deps/lib/python3.11/site-packages')

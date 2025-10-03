@@ -59,9 +59,9 @@ for path in glob(str(importlib_resources.files("tutorlivedeps") / "patches" / "*
     help="Build all live dependencies, zip them and upload to storage backend"
 )
 @click.pass_obj
-def build_live_dependencies(context: Context) -> t.Iterable[tuple[str, str]]:
+def livedeps(context: Context) -> t.Iterable[tuple[str, str]]:
     """
-    Calls the build_deps function in livedeps.py with the list of packages
+    Calls the build_deps function in livedeps with the list of packages
     specified in the LIVE_DEPENDENCIES configuration variable.
     """
     config = tutor_config.load(context.root)
@@ -70,16 +70,16 @@ def build_live_dependencies(context: Context) -> t.Iterable[tuple[str, str]]:
     )
     script = f"""
     pip install \
-    --prefix=/openedx/live-dependencies/deps \
+    --prefix=/openedx/livedeps/deps \
     {all_packages} \
     """
 
     if not all_packages:
-        script = "livedeps.py delete"
+        script = "livedeps delete"
     else:
-        script += "&& livedeps.py build"
+        script += "&& livedeps build"
 
     yield ("lms", script)
 
 
-hooks.Filters.CLI_DO_COMMANDS.add_item(build_live_dependencies)
+hooks.Filters.CLI_DO_COMMANDS.add_item(livedeps)

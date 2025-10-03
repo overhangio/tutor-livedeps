@@ -32,7 +32,7 @@ To remove an old package from this config run
 
 Then run the following command to install the packages that are present in the ``LIVE_DEPENDENCIES`` config:
 
-``tutor dev/local/k8s do build-live-dependencies``
+``tutor dev/local/k8s do livedeps``
 
 
 Troubleshooting

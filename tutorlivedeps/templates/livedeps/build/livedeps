@@ -13,10 +13,10 @@ import zipfile
 from django.core.files.base import File
 from django.core.files.storage import storages
 
-DEPS_DIR = "/openedx/live-dependencies/deps"
+DEPS_DIR = "/openedx/livedeps/deps"
 DEPS_KEY = "deps.zip"
-TRIGGER_FILE = "/openedx/live-dependencies/uwsgi_trigger"
-TIMESTAMP_FILE = "/openedx/live-dependencies/last_update_timestamp"
+TRIGGER_FILE = "/openedx/livedeps/uwsgi_trigger"
+TIMESTAMP_FILE = "/openedx/livedeps/last_update_timestamp"
 DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
 
 STORAGE = storages["default"]
@@ -46,7 +46,7 @@ def monitor_livedeps():
                 os.utime(TRIGGER_FILE, None)
 
 
-def update_livedeps():
+def download_livedeps():
     """Download deps.zip and extract it into DEPS_DIR."""
 
     if STORAGE.exists(DEPS_KEY):
@@ -109,7 +109,7 @@ def main():
     if args.command == "monitor":
         monitor_livedeps()
     elif args.command == "update":
-        update_livedeps()
+        download_livedeps()
     elif args.command == "build":
         build_deps()
     elif args.command == "delete":
