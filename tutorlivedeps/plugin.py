@@ -61,23 +61,15 @@ for path in glob(str(importlib_resources.files("tutorlivedeps") / "patches" / "*
 @click.pass_obj
 def livedeps(context: Context) -> t.Iterable[tuple[str, str]]:
     """
-    Calls the build_deps function in livedeps with the list of packages
+    Calls the build function in livedeps with the list of packages
     specified in the LIVE_DEPENDENCIES configuration variable.
     """
+
     config = tutor_config.load(context.root)
     all_packages = " ".join(
         package for package in t.cast(list[str], config["LIVE_DEPENDENCIES"])
     )
-    script = f"""
-    pip install \
-    --prefix=/openedx/livedeps/deps \
-    {all_packages} \
-    """
-
-    if not all_packages:
-        script = "livedeps delete"
-    else:
-        script += "&& livedeps build"
+    script = f"livedeps build {all_packages}"
 
     yield ("lms", script)
 

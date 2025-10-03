@@ -7,6 +7,7 @@ import argparse
 import datetime
 import os
 import shutil
+import subprocess
 import tempfile
 import zipfile
 
@@ -22,8 +23,8 @@ DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
 STORAGE = storages["default"]
 
 
-def monitor_livedeps():
-    """Check if deps.zip changed and trigger reload if needed."""
+def monitor(args=None):
+    """Check if deps.zip changed and trigger reload if it did."""
 
     if STORAGE.exists(DEPS_KEY):
         remote_ts = STORAGE.get_modified_time(DEPS_KEY)
@@ -46,7 +47,7 @@ def monitor_livedeps():
                 os.utime(TRIGGER_FILE, None)
 
 
-def download_livedeps():
+def download(args=None):
     """Download deps.zip and extract it into DEPS_DIR."""
 
     if STORAGE.exists(DEPS_KEY):
@@ -70,8 +71,22 @@ def download_livedeps():
         f.write(now.isoformat())
 
 
-def build_deps():
-    """Install all packages, zip them and upload it to django storage."""
+def build(args):
+    """Install all packages, zip them and upload to django storage."""
+
+    if os.path.exists(DEPS_DIR):
+        shutil.rmtree(DEPS_DIR)
+    os.makedirs(DEPS_DIR, exist_ok=True)
+
+    if args.packages:
+        pip_cmd = [
+            "pip",
+            "install",
+            "--prefix",
+            DEPS_DIR,
+        ] + args.packages
+
+        subprocess.run(pip_cmd, check=True)
 
     with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
         base = os.path.join(zip_dir, DEPS_KEY)
@@ -81,39 +96,20 @@ def build_deps():
             STORAGE.save(DEPS_KEY, File(f))
 
 
-def delete_deps():
-    """Delete the deps.zip file from storage."""
-    STORAGE.delete(DEPS_KEY)
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Manage live dependencies")
+    parser = argparse.ArgumentParser(description="Manage livedeps")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser(
-        "monitor", help="Monitor deps.zip and trigger reload if needed"
-    )
-    subparsers.add_parser("update", help="Download and extract deps.zip")
-    build_parser = subparsers.add_parser(
-        "build", help="Build and upload deps.zip from LIVE_DEPENDENCIES list"
-    )
-    build_parser.add_argument(
-        "packages",
-        nargs="*",
-        help="List of package names to download",
-    )
-    subparsers.add_parser("delete", help="Delete deps.zip from storage")
+    monitor_parser = subparsers.add_parser("monitor")
+    download_parser = subparsers.add_parser("download")
+    build_parser = subparsers.add_parser("build")
+    monitor_parser.set_defaults(func=monitor)
+    download_parser.set_defaults(func=download)
+    build_parser.set_defaults(func=build)
+    build_parser.add_argument("packages", nargs="*")
 
     args = parser.parse_args()
-
-    if args.command == "monitor":
-        monitor_livedeps()
-    elif args.command == "update":
-        download_livedeps()
-    elif args.command == "build":
-        build_deps()
-    elif args.command == "delete":
-        delete_deps()
+    args.func(args)
 
 
 if __name__ == "__main__":

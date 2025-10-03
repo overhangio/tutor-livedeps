@@ -5,4 +5,4 @@ unique-cron = -1 -1 -1 -1 -1 livedeps monitor
 touch-reload = /openedx/livedeps/uwsgi_trigger
 
 # This script is executed every time the uwsgi server starts/restarts
-exec-asap = livedeps update
+exec-asap = livedeps download
