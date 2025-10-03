@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-"""
-Manage live dependencies for Open edX.
-"""
 
 import argparse
 import datetime
@@ -15,7 +12,7 @@ from django.core.files.base import File
 from django.core.files.storage import storages
 
 DEPS_DIR = "/openedx/livedeps/deps"
-DEPS_KEY = "deps.zip"
+DEPS_KEY = "livedeps/archive.zip"
 TRIGGER_FILE = "/openedx/livedeps/uwsgi_trigger"
 TIMESTAMP_FILE = "/openedx/livedeps/last_update_timestamp"
 DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
@@ -24,47 +21,43 @@ STORAGE = storages["default"]
 
 
 def monitor(args=None):
-    """Check if deps.zip changed and trigger reload if it did."""
+    """
+    This function checks if the remote DEPS_KEY has been modified since
+    the last download. If it has, it touches the TRIGGER_FILE to signal
+    uWSGI to reload the application.
+    """
 
-    if STORAGE.exists(DEPS_KEY):
-        remote_ts = STORAGE.get_modified_time(DEPS_KEY)
+    remote_ts = STORAGE.get_modified_time(DEPS_KEY)
 
-        local_ts = None
-        if os.path.exists(TIMESTAMP_FILE):
-            with open(TIMESTAMP_FILE, "r") as f:
-                local_ts_str = f.read().strip()
-                if local_ts_str:
-                    local_ts = datetime.datetime.fromisoformat(local_ts_str)
+    # TIMESTAMP_FILE contains the last time stamp we downloaded the deps.
+    with open(TIMESTAMP_FILE, "r") as f:
+        local_ts = datetime.datetime.fromisoformat(f.read().strip())
 
-        if not local_ts or local_ts < remote_ts:
-            with open(TRIGGER_FILE, "a"):
-                os.utime(TRIGGER_FILE, None)
-    else:
-        if os.path.exists(DEPS_DIR):
-            # If deps.zip deleted remotely, remove local deps and trigger reload
-            shutil.rmtree(DEPS_DIR)
-            with open(TRIGGER_FILE, "a"):
-                os.utime(TRIGGER_FILE, None)
+    if local_ts < remote_ts:
+        with open(TRIGGER_FILE, "a"):
+            os.utime(TRIGGER_FILE, None)
 
 
 def download(args=None):
-    """Download deps.zip and extract it into DEPS_DIR."""
+    """
+    This function downloads the zip file from the storage backend,
+    extracts it to DEPS_DIR and updates the TIMESTAMP_FILE.
+    """
 
-    if STORAGE.exists(DEPS_KEY):
-        if os.path.exists(DEPS_DIR):
-            shutil.rmtree(DEPS_DIR)
-        os.makedirs(DEPS_DIR, exist_ok=True)
+    shutil.rmtree(DEPS_DIR)
+    os.makedirs(DEPS_DIR)
+    os.makedirs(os.path.dirname(DEPS_ZIP_PATH), exist_ok=True)
 
-        with (
-            STORAGE.open(DEPS_KEY, "rb") as remote_f,
-            open(DEPS_ZIP_PATH, "wb") as local_f,
-        ):
-            shutil.copyfileobj(remote_f, local_f)
+    with (
+        STORAGE.open(DEPS_KEY, "rb") as remote_f,
+        open(DEPS_ZIP_PATH, "wb") as local_f,
+    ):
+        shutil.copyfileobj(remote_f, local_f)
 
-        with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
-            zip_ref.extractall(DEPS_DIR)
+    with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
+        zip_ref.extractall(DEPS_DIR)
 
-        os.remove(DEPS_ZIP_PATH)
+    os.remove(DEPS_ZIP_PATH)
 
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     with open(TIMESTAMP_FILE, "w") as f:
@@ -72,11 +65,10 @@ def download(args=None):
 
 
 def build(args):
-    """Install all packages, zip them and upload to django storage."""
-
-    if os.path.exists(DEPS_DIR):
-        shutil.rmtree(DEPS_DIR)
-    os.makedirs(DEPS_DIR, exist_ok=True)
+    """
+    This function installs the packages specified in args.packages
+    into DEPS_DIR, zips the directory and uploads it to the storage backend.
+    """
 
     if args.packages:
         pip_cmd = [

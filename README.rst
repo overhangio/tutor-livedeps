@@ -16,21 +16,25 @@ Then build the openedx image:
 
 ``tutor images build openedx``
 
+Finally, run the init task:
+
+``tutor dev/local/k8s do init --limit=livedeps``
+
 
 Configuration
 -------------
 
-``LIVE_DEPENDENCIES`` (default: ``"[]"``)
+``LIVEDEPS`` (default: ``"[]"``)
 
 To add a new package to this config run 
 
-``tutor config save --append LIVE_DEPENDENCIES=package_name``
+``tutor config save --append LIVEDEPS=package_name``
 
 To remove an old package from this config run 
 
-``tutor config save --remove LIVE_DEPENDENCIES=package_name``.
+``tutor config save --remove LIVEDEPS=package_name``.
 
-Then run the following command to install the packages that are present in the ``LIVE_DEPENDENCIES`` config:
+Then run the following command to install the packages that are present in the ``LIVEDEPS`` config:
 
 ``tutor dev/local/k8s do livedeps``
 

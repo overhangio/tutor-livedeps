@@ -1,0 +1,8 @@
+# This patch creates the necessary directories and files for livedeps
+# and copies the livedeps management script into the openedx container.
+# /openedx/bin/ is already in the PATH meaning the command can be executed directly.
+RUN mkdir -p /openedx/livedeps
+RUN touch /openedx/livedeps/uwsgi_trigger
+RUN touch /openedx/livedeps/last_update_timestamp
+RUN mkdir /openedx/livedeps/deps
+COPY --chown=app:app --chmod=0755 settings/livedeps/build/livedeps /openedx/bin/

@@ -14,17 +14,37 @@ from .__about__ import __version__
 # CONFIGURATION
 ########################################
 
+
 hooks.Filters.CONFIG_DEFAULTS.add_items(
     [
         ("LIVEDEPS_VERSION", __version__),
-        ("LIVE_DEPENDENCIES", []),
+        ("LIVEDEPS", []),
     ]
 )
+
+########################################
+# INITIALIZATION TASKS
+########################################
+
+
+MY_INIT_TASKS: list[tuple[str, tuple[str, ...]]] = [
+    ("lms", ("livedeps", "tasks", "lms", "init.sh")),
+]
+
+for service, template_path in MY_INIT_TASKS:
+    full_path: str = str(
+        importlib_resources.files("tutorlivedeps")
+        / os.path.join("templates", *template_path)
+    )
+    with open(full_path, encoding="utf-8") as init_task_file:
+        init_task: str = init_task_file.read()
+    hooks.Filters.CLI_DO_INIT_TASKS.add_item((service, init_task))
 
 
 ########################################
 # TEMPLATE RENDERING
 ########################################
+
 
 hooks.Filters.ENV_TEMPLATE_ROOTS.add_items(
     # Root paths for template files, relative to the project root.
@@ -62,12 +82,12 @@ for path in glob(str(importlib_resources.files("tutorlivedeps") / "patches" / "*
 def livedeps(context: Context) -> t.Iterable[tuple[str, str]]:
     """
     Calls the build function in livedeps with the list of packages
-    specified in the LIVE_DEPENDENCIES configuration variable.
+    specified in the LIVEDEPS configuration variable.
     """
 
     config = tutor_config.load(context.root)
     all_packages = " ".join(
-        package for package in t.cast(list[str], config["LIVE_DEPENDENCIES"])
+        package for package in t.cast(list[str], config["LIVEDEPS"])
     )
     script = f"livedeps build {all_packages}"
 

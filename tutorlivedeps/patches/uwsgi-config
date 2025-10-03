@@ -1,7 +1,7 @@
 # Run a cron job every minute that checks if live dependencies zip file has changed
 unique-cron = -1 -1 -1 -1 -1 livedeps monitor
 
-# This file is touched by the monitor_livedeps script to initiate a reload
+# This file is touched by the monitor function in livedeps script to initiate a reload
 touch-reload = /openedx/livedeps/uwsgi_trigger
 
 # This script is executed every time the uwsgi server starts/restarts
