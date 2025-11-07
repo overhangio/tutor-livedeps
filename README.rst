@@ -6,7 +6,7 @@ This is a plugin for `Tutor <https://docs.tutor.edly.io>`_ that provides real ti
 Installation
 ------------
 
-This plugin depends on the `tutor-minio <https://github.com/overhangio/tutor-minio>`_ plugin to store the packages. After installing tutor-minio run the following commands:
+This plugin depends on the `tutor-minio <https://github.com/overhangio/tutor-minio>`_ plugin to store the packages. After installing and enabling tutor-minio run the following commands:
 
 ``pip install git+https://github.com/overhangio/tutor-livedeps.git``
 
@@ -19,6 +19,8 @@ Then build the openedx image:
 Finally, run the init task:
 
 ``tutor local/k8s do init --limit=livedeps``
+
+This step must be performed before you start tutor otherwise your LMS/CMS containers will fail to start.
 
 
 Configuration
@@ -34,7 +36,7 @@ To remove an old package from this config run
 
 ``tutor config save --remove LIVEDEPS=package_name``
 
-Then run the following command to install the packages that are present in the ``LIVEDEPS`` config:
+Then run the following command to install the packages that are present in the ``LIVEDEPS`` config (make sure tutor is already running before executing this command):
 
 ``tutor local/k8s do livedeps``
 
