@@ -28,7 +28,7 @@ hooks.Filters.CONFIG_DEFAULTS.add_items(
 
 
 MY_INIT_TASKS: list[tuple[str, tuple[str, ...]]] = [
-    ("lms", ("livedeps", "tasks", "lms", "init.sh")),
+    ("minio", ("livedeps", "tasks", "minio", "init.sh")),
 ]
 
 for service, template_path in MY_INIT_TASKS:

@@ -18,7 +18,7 @@ Then build the openedx image:
 
 Finally, run the init task:
 
-``tutor dev/local/k8s do init --limit=livedeps``
+``tutor local/k8s do init --limit=livedeps``
 
 
 Configuration
@@ -32,11 +32,11 @@ To add a new package to this config run
 
 To remove an old package from this config run 
 
-``tutor config save --remove LIVEDEPS=package_name``.
+``tutor config save --remove LIVEDEPS=package_name``
 
 Then run the following command to install the packages that are present in the ``LIVEDEPS`` config:
 
-``tutor dev/local/k8s do livedeps``
+``tutor local/k8s do livedeps``
 
 
 Troubleshooting
