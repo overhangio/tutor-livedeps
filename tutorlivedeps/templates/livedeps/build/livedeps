@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+import argparse
+import datetime
+import os
+import shutil
+import subprocess
+import tempfile
+import zipfile
+
+from django.core.files.base import File
+from django.core.files.storage import storages
+
+DEPS_DIR = "/openedx/livedeps/deps"
+DEPS_KEY = "livedeps/archive.zip"
+TRIGGER_FILE = "/openedx/livedeps/uwsgi_trigger"
+TIMESTAMP_FILE = "/openedx/livedeps/last_update_timestamp"
+DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
+
+STORAGE = storages["default"]
+
+
+def monitor(args=None):
+    """
+    This function checks if the remote DEPS_KEY has been modified since
+    the last download. If it has, it touches the TRIGGER_FILE to signal
+    uWSGI to reload the application.
+    """
+
+    remote_ts = STORAGE.get_modified_time(DEPS_KEY)
+
+    # TIMESTAMP_FILE contains the last time stamp we downloaded the deps.
+    with open(TIMESTAMP_FILE, "r") as f:
+        local_ts = datetime.datetime.fromisoformat(f.read().strip())
+
+    if local_ts < remote_ts:
+        with open(TRIGGER_FILE, "a"):
+            os.utime(TRIGGER_FILE, None)
+
+
+def download(args=None):
+    """
+    This function downloads the zip file from the storage backend,
+    extracts it to DEPS_DIR and updates the TIMESTAMP_FILE.
+    """
+
+    shutil.rmtree(DEPS_DIR)
+    os.makedirs(DEPS_DIR)
+    os.makedirs(os.path.dirname(DEPS_ZIP_PATH), exist_ok=True)
+
+    with (
+        STORAGE.open(DEPS_KEY, "rb") as remote_f,
+        open(DEPS_ZIP_PATH, "wb") as local_f,
+    ):
+        shutil.copyfileobj(remote_f, local_f)
+
+    with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
+        zip_ref.extractall(DEPS_DIR)
+
+    os.remove(DEPS_ZIP_PATH)
+
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    with open(TIMESTAMP_FILE, "w") as f:
+        f.write(now.isoformat())
+
+
+def build(args):
+    """
+    This function installs the packages specified in args.packages
+    into DEPS_DIR, zips the directory and uploads it to the storage backend.
+    """
+
+    if args.packages:
+        pip_cmd = [
+            "pip",
+            "install",
+            "--prefix",
+            DEPS_DIR,
+        ] + args.packages
+
+        subprocess.run(pip_cmd, check=True)
+
+    with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
+        base = os.path.join(zip_dir, DEPS_KEY)
+        archive_path = shutil.make_archive(base[:-4], format="zip", root_dir=DEPS_DIR)
+
+        with open(archive_path, "rb") as f:
+            STORAGE.save(DEPS_KEY, File(f))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Manage livedeps")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    monitor_parser = subparsers.add_parser("monitor")
+    download_parser = subparsers.add_parser("download")
+    build_parser = subparsers.add_parser("build")
+    monitor_parser.set_defaults(func=monitor)
+    download_parser.set_defaults(func=download)
+    build_parser.set_defaults(func=build)
+    build_parser.add_argument("packages", nargs="*")
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

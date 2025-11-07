@@ -1,8 +1,8 @@
-# Set the PYTHONPATH to include the folder where we put live dependencies
-ENV PYTHONPATH=/openedx/live-dependencies/deps/lib/python3.11/site-packages
-
-RUN mkdir -p /openedx/live-dependencies
-RUN touch /openedx/live-dependencies/uwsgi_trigger
-RUN touch /openedx/live-dependencies/last_update_timestamp
-COPY --chown=app:app settings/livedeps/build/monitor_livedeps.py /openedx/live-dependencies/
-COPY --chown=app:app settings/livedeps/build/update_livedeps.py /openedx/live-dependencies/
+# This patch creates the necessary directories and files for livedeps
+# and copies the livedeps management script into the openedx container.
+# /openedx/bin/ is already in the PATH meaning the command can be executed directly.
+RUN mkdir -p /openedx/livedeps
+RUN touch /openedx/livedeps/uwsgi_trigger
+RUN touch /openedx/livedeps/last_update_timestamp
+RUN mkdir /openedx/livedeps/deps
+COPY --chown=app:app --chmod=0755 settings/livedeps/build/livedeps /openedx/bin/

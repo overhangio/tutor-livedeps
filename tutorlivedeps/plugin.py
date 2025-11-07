@@ -14,17 +14,37 @@ from .__about__ import __version__
 # CONFIGURATION
 ########################################
 
+
 hooks.Filters.CONFIG_DEFAULTS.add_items(
     [
         ("LIVEDEPS_VERSION", __version__),
-        ("LIVE_DEPENDENCIES", []),
+        ("LIVEDEPS", []),
     ]
 )
+
+########################################
+# INITIALIZATION TASKS
+########################################
+
+
+MY_INIT_TASKS: list[tuple[str, tuple[str, ...]]] = [
+    ("minio", ("livedeps", "tasks", "minio", "init.sh")),
+]
+
+for service, template_path in MY_INIT_TASKS:
+    full_path: str = str(
+        importlib_resources.files("tutorlivedeps")
+        / os.path.join("templates", *template_path)
+    )
+    with open(full_path, encoding="utf-8") as init_task_file:
+        init_task: str = init_task_file.read()
+    hooks.Filters.CLI_DO_INIT_TASKS.add_item((service, init_task))
 
 
 ########################################
 # TEMPLATE RENDERING
 ########################################
+
 
 hooks.Filters.ENV_TEMPLATE_ROOTS.add_items(
     # Root paths for template files, relative to the project root.
@@ -59,48 +79,19 @@ for path in glob(str(importlib_resources.files("tutorlivedeps") / "patches" / "*
     help="Build all live dependencies, zip them and upload to storage backend"
 )
 @click.pass_obj
-def build_live_dependencies(context: Context) -> t.Iterable[tuple[str, str]]:
+def livedeps(context: Context) -> t.Iterable[tuple[str, str]]:
     """
-    Build the live dependencies and upload using Django's storage API.
-    You need to update the `LIVE_DEPENDENCIES` variable in the config file to add/remove packages.
+    Calls the build function in livedeps with the list of packages
+    specified in the LIVEDEPS configuration variable.
     """
+
     config = tutor_config.load(context.root)
     all_packages = " ".join(
-        package for package in t.cast(list[str], config["LIVE_DEPENDENCIES"])
+        package for package in t.cast(list[str], config["LIVEDEPS"])
     )
-    if not all_packages:
-        # Delete the deps.zip file if the LIVE_DEPENDENCIES list is empty
-        script = """
-        python3 -c '
-from django.core.files.storage import storages
-DEPS_KEY = "deps.zip"
-storages["default"].delete(DEPS_KEY)
-'
-        """
-    else:
-        script = f"""
-        pip install \
-        --prefix=/openedx/live-dependencies/deps \
-        {all_packages} \
-        && python3 -c '
-import os, shutil, tempfile
-from django.core.files.storage import storages
-from django.core.files.base import File
-
-DEPS_DIR = "/openedx/live-dependencies/deps"
-DEPS_KEY = "deps.zip"
-
-with tempfile.TemporaryDirectory(prefix="tutor-livedeps-") as zip_dir:
-    base = os.path.join(zip_dir, DEPS_KEY)
-    archive_path = shutil.make_archive(base[:-4], format="zip", root_dir=DEPS_DIR)
-
-    with open(archive_path, "rb") as f:
-        # TODO Use a separate storage for live dependencies
-        storages["default"].save(DEPS_KEY, File(f))
-'
-        """
+    script = f"livedeps build {all_packages}"
 
     yield ("lms", script)
 
 
-hooks.Filters.CLI_DO_COMMANDS.add_item(build_live_dependencies)
+hooks.Filters.CLI_DO_COMMANDS.add_item(livedeps)

@@ -1,0 +1,5 @@
+# We need to add the livedeps packages location to sys.path so they can be discovered
+
+import sys
+
+sys.path.insert(0, "/openedx/livedeps/deps/lib/python3.11/site-packages")
