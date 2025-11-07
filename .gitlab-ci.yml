@@ -1,0 +1,9 @@
+variables:
+  TUTOR_PLUGIN: livedeps
+  TUTOR_PYPI_PACKAGE: tutor-livedeps
+  GITHUB_REPO: overhangio/tutor-livedeps
+
+include:
+  - project: "community/tutor-ci"
+    file: "plugin-gitlab-ci.yml"
+    
