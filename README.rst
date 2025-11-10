@@ -8,7 +8,7 @@ Installation
 
 This plugin depends on the `tutor-minio <https://github.com/overhangio/tutor-minio>`_ plugin to store the packages. After installing and enabling tutor-minio run the following commands:
 
-``pip install git+https://github.com/overhangio/tutor-livedeps.git``
+``tutor plugins install livedeps``
 
 ``tutor plugins enable livedeps``
 
