@@ -16,12 +16,6 @@ Then build the openedx image:
 
 ``tutor images build openedx``
 
-Finally, run the init task:
-
-``tutor local/k8s do init --limit=livedeps``
-
-This step must be performed before you start tutor otherwise your LMS/CMS containers will fail to start.
-
 
 Configuration
 -------------
@@ -39,6 +33,8 @@ To remove an old package from this config run
 Then run the following command to install the packages that are present in the ``LIVEDEPS`` config (make sure tutor is already running before executing this command):
 
 ``tutor local/k8s do livedeps``
+
+You must wait 1 minute after running this command to see the changes reflected in the LMS/CMS.
 
 
 Troubleshooting

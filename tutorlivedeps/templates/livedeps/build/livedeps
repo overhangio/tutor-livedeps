@@ -19,21 +19,38 @@ DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
 
 STORAGE = storages["default"]
 
+def update_local_timestamp():
+    """
+    This function updates the TIMESTAMP_FILE with the current time.
+    """
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    with open(TIMESTAMP_FILE, "w") as f:
+        f.write(now.isoformat())
+    
 
 def monitor(args=None):
     """
     This function checks if the remote DEPS_KEY has been modified since
     the last download. If it has, it touches the TRIGGER_FILE to signal
     uWSGI to reload the application.
+
+    If the TIMESTAMP_FILE is empty, that means we have never downloaded
+    the dependencies before, so we also trigger a reload and update the timestamp.
     """
+
+    if not STORAGE.exists(DEPS_KEY):
+        return
 
     remote_ts = STORAGE.get_modified_time(DEPS_KEY)
 
-    # TIMESTAMP_FILE contains the last time stamp we downloaded the deps.
     with open(TIMESTAMP_FILE, "r") as f:
-        local_ts = datetime.datetime.fromisoformat(f.read().strip())
-
-    if local_ts < remote_ts:
+        content = f.read().strip()
+        if content == "":
+            local_ts = None
+        else:
+            local_ts = datetime.datetime.fromisoformat(content)
+    print(f"Local timestamp: {local_ts}, Remote timestamp: {remote_ts}")
+    if local_ts is None or local_ts < remote_ts:
         with open(TRIGGER_FILE, "a"):
             os.utime(TRIGGER_FILE, None)
 
@@ -43,7 +60,9 @@ def download(args=None):
     This function downloads the zip file from the storage backend,
     extracts it to DEPS_DIR and updates the TIMESTAMP_FILE.
     """
-
+    if not STORAGE.exists(DEPS_KEY):
+        return
+    
     shutil.rmtree(DEPS_DIR)
     os.makedirs(DEPS_DIR)
     os.makedirs(os.path.dirname(DEPS_ZIP_PATH), exist_ok=True)
@@ -59,9 +78,7 @@ def download(args=None):
 
     os.remove(DEPS_ZIP_PATH)
 
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    with open(TIMESTAMP_FILE, "w") as f:
-        f.write(now.isoformat())
+    update_local_timestamp()
 
 
 def build(args):

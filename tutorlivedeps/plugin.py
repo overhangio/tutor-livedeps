@@ -22,24 +22,6 @@ hooks.Filters.CONFIG_DEFAULTS.add_items(
     ]
 )
 
-########################################
-# INITIALIZATION TASKS
-########################################
-
-
-MY_INIT_TASKS: list[tuple[str, tuple[str, ...]]] = [
-    ("minio", ("livedeps", "tasks", "minio", "init.sh")),
-]
-
-for service, template_path in MY_INIT_TASKS:
-    full_path: str = str(
-        importlib_resources.files("tutorlivedeps")
-        / os.path.join("templates", *template_path)
-    )
-    with open(full_path, encoding="utf-8") as init_task_file:
-        init_task: str = init_task_file.read()
-    hooks.Filters.CLI_DO_INIT_TASKS.add_item((service, init_task))
-
 
 ########################################
 # TEMPLATE RENDERING
