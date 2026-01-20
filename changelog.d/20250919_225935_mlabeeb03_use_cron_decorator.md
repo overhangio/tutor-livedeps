@@ -1,2 +1,0 @@
-- [Improvement] Use uwsgi cron instead of a daemon to run monitor_livedeps.py script. (by @mlabeeb03)
-- [Improvement] Use the last_update_timestamp file to check for the local timestamp of dependencies. (by @mlabeeb03)

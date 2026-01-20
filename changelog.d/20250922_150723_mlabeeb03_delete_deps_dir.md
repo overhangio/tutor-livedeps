@@ -1,1 +1,0 @@
-- [Bugfix] Delete the local deps directory if deps.zip is deleted from storage. (by @mlabeeb03)
