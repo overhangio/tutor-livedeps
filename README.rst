@@ -36,6 +36,16 @@ Then run the following command to install the packages that are present in the `
 
 You must wait 1 minute after running this command to see the changes reflected in the LMS/CMS.
 
+How it works
+------------
+
+Granian, the web server of the LMS and CMS, has no hooks to run commands, so this plugin sets the command of the LMS and CMS containers (the ``CMD`` of the openedx image) to ``livedeps serve``. This command downloads the dependencies, starts a loop that checks for new ones every minute and reloads the Granian workers when they change, then runs Granian.
+
+As a consequence:
+
+- This plugin can't be combined with another plugin that also sets ``CMD`` in the openedx image.
+- ``tutor images build openedx`` prints a ``MultipleInstructionsDisallowed`` warning, because the image now has two ``CMD`` instructions. This is expected: the last one, set by this plugin, is the one that is used.
+
 
 Troubleshooting
 ---------------

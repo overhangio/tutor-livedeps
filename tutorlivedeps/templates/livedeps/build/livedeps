@@ -6,7 +6,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import traceback
 import zipfile
 
@@ -21,13 +20,12 @@ MONITOR_INTERVAL = 60
 
 STORAGE = storages["default"]
 
-def update_local_timestamp():
+def update_local_timestamp(timestamp):
     """
-    This function updates the TIMESTAMP_FILE with the current time.
+    This function writes the given timestamp to the TIMESTAMP_FILE.
     """
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
     with open(TIMESTAMP_FILE, "w") as f:
-        f.write(now.isoformat())
+        f.write(timestamp.isoformat())
     
 
 def monitor(args=None):
@@ -51,41 +49,33 @@ def monitor(args=None):
             local_ts = None
         else:
             local_ts = datetime.datetime.fromisoformat(content)
-    # Flush, since watch runs this in a long-lived process whose output is buffered
-    print(f"Local timestamp: {local_ts}, Remote timestamp: {remote_ts}", flush=True)
+    print(f"Local timestamp: {local_ts}, Remote timestamp: {remote_ts}")
     if local_ts is None or local_ts < remote_ts:
         download()
         subprocess.run(["reload-granian"], check=True)
 
 
-def watch(args=None):
-    """
-    This function runs monitor every MONITOR_INTERVAL seconds. An error, for
-    instance when the storage backend is unreachable, is printed and retried
-    at the next interval.
-    """
-    while True:
-        time.sleep(MONITOR_INTERVAL)
-        try:
-            monitor()
-        except Exception:
-            traceback.print_exc()
-
-
 def serve(args=None):
     """
     This function is the command of the LMS and CMS containers. It downloads the
-    dependencies, starts watch in the background, then replaces itself with
-    run-granian, so that Granian runs as PID 1 and reload-granian can reach it.
+    dependencies, starts a loop that runs monitor every MONITOR_INTERVAL seconds,
+    then replaces itself with run-granian, so that Granian runs as PID 1 and
+    reload-granian can reach it.
+
+    Each monitor run is a separate process, so a crash (for instance when the
+    storage backend is unreachable) is retried at the next interval, and the
+    settings are not kept in memory between runs.
     """
     try:
         download()
     except Exception:
         # Serve the platform without live dependencies rather than not at all.
-        # watch retries the download, since the timestamp file is still empty.
+        # monitor retries the download, since the timestamp file is still empty.
         traceback.print_exc()
 
-    subprocess.Popen(["livedeps", "watch"])
+    subprocess.Popen(
+        ["sh", "-c", f"while sleep {MONITOR_INTERVAL}; do livedeps monitor; done"]
+    )
     os.execvp("run-granian", ["run-granian"])
 
 
@@ -100,6 +90,10 @@ def download(args=None):
     if not STORAGE.exists(DEPS_KEY):
         return
 
+    # Read before downloading: if the archive is uploaded again during the download,
+    # the next monitor run sees a newer remote timestamp and downloads it again.
+    remote_ts = STORAGE.get_modified_time(DEPS_KEY)
+
     new_dir = DEPS_DIR + ".new"
     old_dir = DEPS_DIR + ".old"
     shutil.rmtree(new_dir, ignore_errors=True)
@@ -112,6 +106,9 @@ def download(args=None):
     ):
         shutil.copyfileobj(remote_f, local_f)
 
+    # extractall doesn't create the directory when the archive is empty, which is
+    # the case once the last package is removed from LIVEDEPS
+    os.makedirs(new_dir)
     with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
         zip_ref.extractall(new_dir)
 
@@ -122,7 +119,7 @@ def download(args=None):
     os.rename(new_dir, DEPS_DIR)
     shutil.rmtree(old_dir, ignore_errors=True)
 
-    update_local_timestamp()
+    update_local_timestamp(remote_ts)
 
 
 def build(args):
@@ -155,12 +152,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     monitor_parser = subparsers.add_parser("monitor")
-    watch_parser = subparsers.add_parser("watch")
     serve_parser = subparsers.add_parser("serve")
     download_parser = subparsers.add_parser("download")
     build_parser = subparsers.add_parser("build")
     monitor_parser.set_defaults(func=monitor)
-    watch_parser.set_defaults(func=watch)
     serve_parser.set_defaults(func=serve)
     download_parser.set_defaults(func=download)
     build_parser.set_defaults(func=build)
