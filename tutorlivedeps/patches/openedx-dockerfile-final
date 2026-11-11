@@ -2,7 +2,12 @@
 # and copies the livedeps management script into the openedx container.
 # /openedx/bin/ is already in the PATH meaning the command can be executed directly.
 RUN mkdir -p /openedx/livedeps
-RUN touch /openedx/livedeps/uwsgi_trigger
 RUN touch /openedx/livedeps/last_update_timestamp
-RUN mkdir /openedx/livedeps/deps
+# The deps directory is created at runtime by "livedeps download": it is replaced by
+# renaming, and Docker's overlay filesystem can't rename a directory from an image layer.
 COPY --chown=app:app --chmod=0755 settings/livedeps/build/livedeps /openedx/bin/
+
+# Granian has no hooks to run commands, so livedeps wraps it: it downloads the
+# dependencies, starts monitoring them in the background, then replaces itself with
+# run-granian, which keeps Granian as PID 1 for reload-granian.
+CMD ["livedeps", "serve"]

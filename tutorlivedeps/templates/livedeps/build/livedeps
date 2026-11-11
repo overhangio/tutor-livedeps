@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import traceback
 import zipfile
 
 from django.core.files.base import File
@@ -13,29 +14,28 @@ from django.core.files.storage import storages
 
 DEPS_DIR = "/openedx/livedeps/deps"
 DEPS_KEY = "livedeps/archive.zip"
-TRIGGER_FILE = "/openedx/livedeps/uwsgi_trigger"
 TIMESTAMP_FILE = "/openedx/livedeps/last_update_timestamp"
 DEPS_ZIP_PATH = os.path.join(tempfile.gettempdir(), DEPS_KEY)
+MONITOR_INTERVAL = 60
 
 STORAGE = storages["default"]
 
-def update_local_timestamp():
+def update_local_timestamp(timestamp):
     """
-    This function updates the TIMESTAMP_FILE with the current time.
+    This function writes the given timestamp to the TIMESTAMP_FILE.
     """
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
     with open(TIMESTAMP_FILE, "w") as f:
-        f.write(now.isoformat())
+        f.write(timestamp.isoformat())
     
 
 def monitor(args=None):
     """
     This function checks if the remote DEPS_KEY has been modified since
-    the last download. If it has, it touches the TRIGGER_FILE to signal
-    uWSGI to reload the application.
+    the last download. If it has, it downloads the dependencies again and
+    reloads the Granian workers so that they import the new packages.
 
     If the TIMESTAMP_FILE is empty, that means we have never downloaded
-    the dependencies before, so we also trigger a reload and update the timestamp.
+    the dependencies before, so we also download them and update the timestamp.
     """
 
     if not STORAGE.exists(DEPS_KEY):
@@ -51,20 +51,53 @@ def monitor(args=None):
             local_ts = datetime.datetime.fromisoformat(content)
     print(f"Local timestamp: {local_ts}, Remote timestamp: {remote_ts}")
     if local_ts is None or local_ts < remote_ts:
-        with open(TRIGGER_FILE, "a"):
-            os.utime(TRIGGER_FILE, None)
+        download()
+        subprocess.run(["reload-granian"], check=True)
+
+
+def serve(args=None):
+    """
+    This function is the command of the LMS and CMS containers. It downloads the
+    dependencies, starts a loop that runs monitor every MONITOR_INTERVAL seconds,
+    then replaces itself with run-granian, so that Granian runs as PID 1 and
+    reload-granian can reach it.
+
+    Each monitor run is a separate process, so a crash (for instance when the
+    storage backend is unreachable) is retried at the next interval, and the
+    settings are not kept in memory between runs.
+    """
+    try:
+        download()
+    except Exception:
+        # Serve the platform without live dependencies rather than not at all.
+        # monitor retries the download, since the timestamp file is still empty.
+        traceback.print_exc()
+
+    subprocess.Popen(
+        ["sh", "-c", f"while sleep {MONITOR_INTERVAL}; do livedeps monitor; done"]
+    )
+    os.execvp("run-granian", ["run-granian"])
 
 
 def download(args=None):
     """
     This function downloads the zip file from the storage backend,
     extracts it to DEPS_DIR and updates the TIMESTAMP_FILE.
+
+    The workers keep serving requests during the download, so the archive is
+    extracted next to DEPS_DIR and swapped in once complete.
     """
     if not STORAGE.exists(DEPS_KEY):
         return
-    
-    shutil.rmtree(DEPS_DIR)
-    os.makedirs(DEPS_DIR)
+
+    # Read before downloading: if the archive is uploaded again during the download,
+    # the next monitor run sees a newer remote timestamp and downloads it again.
+    remote_ts = STORAGE.get_modified_time(DEPS_KEY)
+
+    new_dir = DEPS_DIR + ".new"
+    old_dir = DEPS_DIR + ".old"
+    shutil.rmtree(new_dir, ignore_errors=True)
+    shutil.rmtree(old_dir, ignore_errors=True)
     os.makedirs(os.path.dirname(DEPS_ZIP_PATH), exist_ok=True)
 
     with (
@@ -73,12 +106,20 @@ def download(args=None):
     ):
         shutil.copyfileobj(remote_f, local_f)
 
+    # extractall doesn't create the directory when the archive is empty, which is
+    # the case once the last package is removed from LIVEDEPS
+    os.makedirs(new_dir)
     with zipfile.ZipFile(DEPS_ZIP_PATH, "r") as zip_ref:
-        zip_ref.extractall(DEPS_DIR)
+        zip_ref.extractall(new_dir)
 
     os.remove(DEPS_ZIP_PATH)
 
-    update_local_timestamp()
+    if os.path.exists(DEPS_DIR):
+        os.rename(DEPS_DIR, old_dir)
+    os.rename(new_dir, DEPS_DIR)
+    shutil.rmtree(old_dir, ignore_errors=True)
+
+    update_local_timestamp(remote_ts)
 
 
 def build(args):
@@ -87,6 +128,7 @@ def build(args):
     into DEPS_DIR, zips the directory and uploads it to the storage backend.
     """
 
+    os.makedirs(DEPS_DIR, exist_ok=True)
     if args.packages:
         pip_cmd = [
             "pip",
@@ -110,9 +152,11 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     monitor_parser = subparsers.add_parser("monitor")
+    serve_parser = subparsers.add_parser("serve")
     download_parser = subparsers.add_parser("download")
     build_parser = subparsers.add_parser("build")
     monitor_parser.set_defaults(func=monitor)
+    serve_parser.set_defaults(func=serve)
     download_parser.set_defaults(func=download)
     build_parser.set_defaults(func=build)
     build_parser.add_argument("packages", nargs="*")
