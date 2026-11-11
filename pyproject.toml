@@ -29,7 +29,10 @@ classifiers = [
 ]
 dependencies = [
     "tutor>=22.0.0,<23.0.0",
-    "tutor-minio>=22.0.0,<23.0.0",
+    # Provides the Django default S3 storage (RustFS/Azure/external S3) that
+    # livedeps uses via storages["default"], replacing the archived tutor-minio.
+    # Not published on PyPI yet, so it is referenced directly from Git.
+    "tutor-objectstorage @ git+https://github.com/overhangio/tutor-objectstorage.git",
 ]
 optional-dependencies = { dev = ["tutor[dev]>=22.0.0,<23.0.0", "ruff"] }
 
@@ -38,6 +41,12 @@ dynamic = ["version"]
 
 [tool.hatch.version]
 path = "tutorlivedeps/__about__.py"
+
+# tutor-objectstorage is referenced as a direct Git URL in
+# project.dependencies (it is not published on PyPI yet). Hatch rejects
+# direct references during metadata generation unless this is enabled.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 # https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels
 [project.urls]

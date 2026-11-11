@@ -1,0 +1,1 @@
+- [Improvement] Replace the dependency on the archived `tutor-minio` with `tutor-objectstorage` (RustFS by default; Azure and external S3 also supported). livedeps stores packages through Open edX's default Django storage, so this is a dependency/documentation change only — no plugin logic changed.

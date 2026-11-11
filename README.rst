@@ -6,7 +6,17 @@ This is a plugin for `Tutor <https://docs.tutor.edly.io>`_ that provides real ti
 Installation
 ------------
 
-This plugin depends on the `tutor-minio <https://github.com/overhangio/tutor-minio>`_ plugin to store the packages. After installing and enabling tutor-minio run the following commands:
+This plugin stores the built packages in Open edX's default Django file storage, so it depends on a plugin that points that storage at an object store. It uses `tutor-objectstorage <https://github.com/overhangio/tutor-objectstorage>`_ (RustFS by default; Azure and external S3 are also supported), the successor to the archived tutor-minio. Install and enable it first — it is not yet published on PyPI, so install it from Git:
+
+``pip install git+https://github.com/overhangio/tutor-objectstorage.git``
+
+``tutor plugins enable objectstorage``
+
+.. note::
+
+   ``tutor-objectstorage`` cannot be enabled at the same time as ``tutor-minio`` — both configure Open edX's default object storage. If you are migrating from tutor-minio, disable it first with ``tutor plugins disable minio``.
+
+Then install and enable livedeps:
 
 ``tutor plugins install livedeps``
 
@@ -45,4 +55,4 @@ This Tutor plugin is maintained by Muhammad Labeeb from `Edly <https://edly.io>`
 License
 -------
 
-This work is licensed under the terms of the `GNU Affero General Public License (AGPL) <https://github.com/overhangio/tutor-minio/blob/release/LICENSE.txt>`_.
+This work is licensed under the terms of the `GNU Affero General Public License (AGPL) <https://github.com/overhangio/tutor-livedeps/blob/release/LICENSE.txt>`_.
