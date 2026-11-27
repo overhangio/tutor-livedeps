@@ -18,7 +18,7 @@ build-pythonpackage: ## Build the "tutor-livedeps" python package for upload to 
 	python -m build --sdist
 
 test-pythonpackage: build-pythonpackage ## Test that package can be uploaded to pypi
-	twine check dist/tutor_livedeps-$(shell make version).tar.gz
+	twine check dist/tutor_livedeps-$(shell $(MAKE) --no-print-directory version).tar.gz
 
 format: ## Format code automatically
 	ruff format ${SRC_DIRS}
